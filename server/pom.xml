@@ -4,19 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.hammerlab</groupId>
-  <artifactId>json-broadcast-server</artifactId>
+  <artifactId>json-relay-server</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <parent>
     <groupId>org.hammerlab</groupId>
-    <artifactId>json-broadcast-listener</artifactId>
+    <artifactId>spark-json-relay</artifactId>
     <version>1.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <packaging>jar</packaging>
-  <name>JSON Broadcast Listener for Spark - Server</name>
+  <name>JSON Relay for Spark Events - Server</name>
 
   <build>
     <outputDirectory>target/scala-${scala.version}/classes</outputDirectory>
@@ -68,7 +67,7 @@
             </transformer>
           </transformers>
           <shadedArtifactAttached>true</shadedArtifactAttached>
-          <finalName>json-broadcast-server-with-deps-${project.version}</finalName>
+          <finalName>json-relay-server-with-deps-${project.version}</finalName>
           <filters>
             <filter>
               <artifact>*:*</artifact>

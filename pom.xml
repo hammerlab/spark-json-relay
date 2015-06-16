@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.hammerlab</groupId>
-  <artifactId>json-broadcast-listener</artifactId>
+  <artifactId>spark-json-relay</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <parent>
@@ -16,7 +16,7 @@
   </parent>
 
   <packaging>pom</packaging>
-  <name>JSON Broadcast Listener for Spark</name>
+  <name>JSON Relay for Spark</name>
 
   <properties>
     <java.version>1.7</java.version>
@@ -41,9 +41,9 @@
   </licenses>
 
   <scm>
-    <connection>scm:git:git@github.com:hammerlab/json-broadcast-listener.git</connection>
-    <developerConnection>scm:git:git@github.com:hammerlab/json-broadcast-listener.git</developerConnection>
-    <url>scm:git:git@github.com:hammerlab/json-broadcast-listener.git</url>
+    <connection>scm:git:git@github.com:hammerlab/spark-json-relay.git</connection>
+    <developerConnection>scm:git:git@github.com:hammerlab/spark-json-relay.git</developerConnection>
+    <url>scm:git:git@github.com:hammerlab/spark-json-relay.git</url>
     <tag>HEAD</tag>
   </scm>
 

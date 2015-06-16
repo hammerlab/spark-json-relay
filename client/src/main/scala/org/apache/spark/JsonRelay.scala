@@ -11,7 +11,7 @@ import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.util.JsonProtocol
 import org.json4s.JsonAST.{JObject, JNothing, JValue}
 
-class JsonBroadcastListener(conf: SparkConf) extends SparkFirehoseListener {
+class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
 
   val appId = conf.get("spark.app.id")
   val host = conf.get("spear.host", "localhost")
