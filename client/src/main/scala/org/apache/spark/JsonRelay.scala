@@ -14,9 +14,9 @@ import org.json4s.JsonAST.{JObject, JNothing, JValue}
 class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
 
   val appId = conf.get("spark.app.id")
-  val host = conf.get("spear.host", "localhost")
-  val port = conf.getInt("spear.port", 8123)
-  val debugLogs = conf.getBoolean("spear.verbose", false)
+  val host = conf.get("slim.host", "localhost")
+  val port = conf.getInt("slim.port", 8123)
+  val debugLogs = conf.getBoolean("slim.verbose", false)
 
   val socketFactory = SocketFactory.getDefault
   var socket: Socket = _
