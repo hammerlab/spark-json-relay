@@ -56,7 +56,15 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
         else
           JNothing
       case _ =>
-        JsonProtocol.sparkEventToJson(event)
+        try {
+          JsonProtocol.sparkEventToJson(event)
+        } catch {
+          case e: MatchError =>
+            // Future-proofing for Spark 1.5.0: there is a SparkListenerBlockUpdated
+            // event type that is only relevant to Spark Streaming jobs; for now we
+            // just drop it.
+            JNothing
+        }
     }) match {
       case jo: JObject => jo ~ ("appId" -> appId)
       case JNothing => JNothing
