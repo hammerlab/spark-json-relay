@@ -4,19 +4,20 @@
 It is designed to be used with [`slim`][], which consumes JsonRelay's emitted events and writes useful statistics about them to Mongo, from whence [Spree][] serves up live-updating web pages.
 
 ## Usage
-To use `JsonRelay`, first build it:
+To use `JsonRelay`, first download the JAR:
 
 ```
-$ mvn package -DskipTests -pl client
+$ wget https://repo1.maven.org/maven2/org/hammerlab/spark-json-relay/1.0.0/spark-json-relay-1.0.0.jar
 ```
 
-Then register your built JAR as a `SparkListener` when you start a Spark job (via either `spark-submit` or `spark-shell`):
-
+Then, pass it to your `spark-submit` or `spark-shell` commands:
 ```
 $ $SPARK_HOME/bin/spark-{submit,shell} \
-    --driver-class-path /path/to/json-relay/client/target/json-relay-client-with-deps-1.0-SNAPSHOT.jar \
+    --driver-class-path spark-json-relay-1.0.0.jar \
     --conf spark.extraListeners=org.apache.spark.JsonRelay
 ```
+
+That's it!
 
 Two additional flags, `--conf spark.slim.{host,port}`, specify the location `JsonRelay` will attempt to connect and send events to.
 
@@ -25,7 +26,7 @@ Two additional flags, `--conf spark.slim.{host,port}`, specify the location `Jso
 `JsonRelay` mostly piggybacks on Spark's [`JsonProtocol`][] for JSON serialization, but makes two of its own modifications:
 
 1. It adds an `appId` field to all events; this allows downstream consumers to process events from multiple Spark applications simultaneously / more easily over time.
-2. It rolls its own serialization of `SparkListenerExecutorMetricsUpdate` events, which (at time of writing) are [omitted from Spark's `JsonProtocol`](https://github.com/apache/spark/blob/v1.4.1/core/src/main/scala/org/apache/spark/util/JsonProtocol.scala#L96) (cf. [SPARK-9036][]).
+2. It rolls its own serialization of `SparkListenerExecutorMetricsUpdate` events, which is [omitted from Spark's `JsonProtocol`](https://github.com/apache/spark/blob/v1.4.1/core/src/main/scala/org/apache/spark/util/JsonProtocol.scala#L96) in Spark prior to `1.5.0` (cf. [SPARK-9036][]).
 
 ## Questions?
 
