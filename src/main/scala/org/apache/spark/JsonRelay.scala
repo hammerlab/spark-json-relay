@@ -42,11 +42,16 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
 
   override def onEvent(event: SparkListenerEvent): Unit = {
     val jv: JValue = (event match {
+      // NOTE(ryan): this duplicates a code path in JsonProtocol in
+      // Spark >= 1.5.0. For JsonRelay to use JsonProtocol's code path when
+      // running inside Spark <1.5.0, it would have to shade all of
+      // spark-core:1.5.0, which seems worse than just duplicating the code
+      // path here.
       case e: SparkListenerExecutorMetricsUpdate =>
         if (e.taskMetrics.nonEmpty)
           ("Event" -> Utils.getFormattedClassName(e)) ~
             ("Executor ID" -> e.execId) ~
-            ("Metrics" -> e.taskMetrics.map {
+            ("Metrics Updated" -> e.taskMetrics.map {
               case (taskId, stageId, attemptId, metrics) =>
                 ("Task ID" -> taskId) ~
                   ("Stage ID" -> stageId) ~
@@ -60,7 +65,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
           JsonProtocol.sparkEventToJson(event)
         } catch {
           case e: MatchError =>
-            // Future-proofing for Spark 1.5.0: there is a SparkListenerBlockUpdated
+            // In Spark 1.5.0 there is a SparkListenerBlockUpdated
             // event type that is only relevant to Spark Streaming jobs; for now we
             // just drop it.
             JNothing
