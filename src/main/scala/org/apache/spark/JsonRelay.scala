@@ -26,14 +26,14 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
   var numReqs = 0
   var lastEvent: Option[String] = None
 
-  def print(s: String): Unit = {
+  def debug(s: String): Unit = {
     if (debugLogs) {
       println(s)
     }
   }
 
   def initSocketAndWriter() = {
-    print("*** Initializing socket ***")
+    debug("*** Initializing socket ***")
     socket = socketFactory.createSocket(host, port)
     writer = new OutputStreamWriter(socket.getOutputStream, utf8)
   }
@@ -74,10 +74,10 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
     val s: String = compact(jv)
 
     numReqs += 1
-    print(s"Socket To send request: $numReqs\n$s\n")
+    debug(s"Socket To send request: $numReqs\n$s\n")
     try {
       if (socket.isClosed) {
-        print(s"*** Socket is closed... ***")
+        debug(s"*** Socket is closed... ***")
       }
       writer.write(s)
       writer.flush()
@@ -85,15 +85,15 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
       case e: SocketException =>
         socket.close()
         initSocketAndWriter()
-        print(s"Socket re-sending: $lastEvent and $s")
+        debug(s"Socket re-sending: $lastEvent and $s")
         lastEvent.foreach(writer.write)
         writer.write(s)
         writer.flush()
-        print("Socket re-sent")
+        debug("Socket re-sent")
     }
 
     lastEvent = Some(s)
 
-    print(s"Socket Sending request: $numReqs")
+    debug(s"Socket Sending request: $numReqs")
   }
 }
