@@ -1,11 +1,13 @@
 name := "spark-json-relay"
 
-version := "1.0.0"
+version := "1.0.1"
 
-scalaVersion := "2.11.4"
+scalaVersion := "2.10.4"
 
 val json4s = "org.json4s" %% "json4s-jackson" % "3.2.10"
 
-val spark = "org.apache.spark" %% "spark-core" % "1.4.1" % "provided"
+libraryDependencies += json4s
 
-libraryDependencies ++= Seq(json4s, spark)
+spName := "hammerlab/spark-json-relay"
+
+sparkVersion := "1.5.0"
