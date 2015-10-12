@@ -7,19 +7,19 @@ It is designed to be used with [`slim`][], which consumes JsonRelay's emitted ev
 With Spark >= 1.5.0 you can simply pass the following flags to your `spark-shell` and `spark-submit` commands:
 
 ```sh
-    --packages org.hammerlab:spark-json-relay:2.0.0
+    --packages org.hammerlab:spark-json-relay:2.0.1
     --conf spark.extraListeners=org.apache.spark.JsonRelay
 ```
 
 If using earlier versions of Spark, you'll need to first download the JAR:
 
 ```
-$ wget https://repo1.maven.org/maven2/org/hammerlab/spark-json-relay/2.0.0/spark-json-relay-2.0.0.jar
+$ wget https://repo1.maven.org/maven2/org/hammerlab/spark-json-relay/2.0.1/spark-json-relay-2.0.1.jar
 ```
 
 Then, pass these flags to your `spark-submit` or `spark-shell` commands:
 ```
-    --driver-class-path spark-json-relay-2.0.0.jar
+    --driver-class-path spark-json-relay-2.0.1.jar
     --conf spark.extraListeners=org.apache.spark.JsonRelay
 ```
 
