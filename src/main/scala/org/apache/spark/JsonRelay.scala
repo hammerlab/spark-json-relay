@@ -79,7 +79,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
     }
 
     // Parse `SparkListenerJobStart` event to extract DAG, it is converted into JSON string,
-    // 'appId' and event as 'SparkListenerDAG' are added
+    // 'appId' and event as 'SparkListenerSubmitDAG' are added
     val maybeDAGs: Seq[String] = event match {
       case jobStart: SparkListenerJobStart => jobStart.stageInfos.map { stageInfo =>
         compact(OperationGraph.makeJsonStageDAG(stageInfo) ~
