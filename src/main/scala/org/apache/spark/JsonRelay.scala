@@ -7,9 +7,11 @@ import javax.net.SocketFactory
 
 import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
-import org.apache.spark.scheduler.{SparkListenerExecutorMetricsUpdate, SparkListenerEvent}
-import org.apache.spark.util.{Utils, JsonProtocol}
 import org.json4s.JsonAST.{JObject, JNothing, JValue}
+
+import org.apache.spark.scheduler.{SparkListenerExecutorMetricsUpdate, SparkListenerEvent, SparkListenerJobStart}
+import org.apache.spark.util.{Utils, JsonProtocol}
+import org.apache.spark.ui.OperationGraph
 
 class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
 
@@ -33,7 +35,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
   }
 
   def initSocketAndWriter() = {
-    println("*** JsonRelay: initializing socket ***")
+    debug("*** JsonRelay: initializing socket ***")
     socket = socketFactory.createSocket(host, port)
     writer = new OutputStreamWriter(socket.getOutputStream, utf8)
   }
@@ -76,6 +78,16 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
       case j => throw new Exception(s"Non-object SparkListenerEvent $j")
     }
 
+    // Parse `SparkListenerJobStart` event to extract DAG, it is converted into JSON string,
+    // 'appId' and event as 'SparkListenerDAG' are added
+    val maybeDAGs: Seq[String] = event match {
+      case jobStart: SparkListenerJobStart => jobStart.stageInfos.map { stageInfo =>
+        compact(OperationGraph.makeJsonStageDAG(stageInfo) ~
+          ("appId" -> appId) ~ ("Event" -> "SparkListenerSubmitDAG"))
+      }
+      case otherEvent => Seq.empty
+    }
+
     val s: String = compact(jv)
 
     numReqs += 1
@@ -87,14 +99,17 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
         debug(s"*** Socket is closed... ***")
       }
       writer.write(s)
+      // write DAGs, if available
+      maybeDAGs.foreach(writer.write)
       writer.flush()
     } catch {
       case e: SocketException =>
         socket.close()
         initSocketAndWriter()
-        println(s"*** JsonRelay re-sending: $lastEvent and $s ***")
+        debug(s"*** JsonRelay re-sending: $lastEvent and $s and DAGs ***")
         lastEvent.foreach(writer.write)
         writer.write(s)
+        maybeDAGs.foreach(writer.write)
         writer.flush()
         debug("Socket re-sent")
     }
