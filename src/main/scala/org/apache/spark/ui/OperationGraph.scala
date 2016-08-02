@@ -14,31 +14,23 @@ import org.json4s.JsonAST.JObject
 object OperationGraph {
   private val graph = RDDOperationGraph
 
-  /** Convert cluster into JSON object, currently `callsite` attribute is not exported */
-  private def makeJsonCluster(cluster: RDDOperationCluster): JObject = {
-    val childNodes = cluster.childNodes.map { node =>
-      ("id" -> node.id) ~ ("name" -> node.name) ~ ("label" -> s"${node.name} [${node.id}]") ~
-        ("cached" -> node.cached) }
-    val clusters = cluster.childClusters.map(makeJsonCluster)
-    ("id" -> cluster.id) ~ ("name" -> cluster.name) ~ ("childNodes" -> childNodes) ~
-      ("clusters" -> clusters)
+  private def edgeToJson(edge: RDDOperationEdge): JObject = {
+    ("fromId" -> edge.fromId) ~ ("toId" -> edge.toId)
   }
 
-  /** Convert RDDOperationGraph into JSON, this includes root cluster and edges */
-  def makeJson(dag: RDDOperationGraph): JObject = {
-    // make subclusters
-    val clustersJson = ("rootCluster" -> makeJsonCluster(dag.rootCluster))
-    // make edges
-    val edgesJson = ("edges" -> dag.edges.map { edge =>
-      ("fromId" -> edge.fromId) ~ ("toId" -> edge.toId)
-    })
-    edgesJson ~ clustersJson
+  private def nodeToJson(node: RDDOperationNode): JObject = {
+    ("rddId" -> node.id) ~ ("name" -> node.name) ~ ("cached" -> node.cached)
   }
 
-  /** Convert StageInfo into JSON, this includes stage id and attempt id */
+  /** Convert StageInfo dot file into JSON, this includes stage id and attempt id */
   def makeJsonStageDAG(stageInfo: StageInfo): JObject = {
     val dag = OperationGraph.graph.makeOperationGraph(stageInfo)
-    val dagJson = makeJson(dag)
-    ("stageId" -> stageInfo.stageId) ~ ("attemptId" -> stageInfo.attemptId) ~ dagJson
+    val dotFile = OperationGraph.graph.makeDotFile(dag)
+    val outgoingEdges = dag.outgoingEdges.map(edgeToJson)
+    val incomingEdges = dag.incomingEdges.map(edgeToJson)
+    val cachedNodes = dag.rootCluster.getCachedNodes.map(nodeToJson)
+    ("stageId" -> stageInfo.stageId) ~ ("attemptId" -> stageInfo.attemptId) ~
+      ("dotFile" -> dotFile) ~ ("cachedRDDs" -> cachedNodes) ~
+        ("incomingEdges" -> incomingEdges) ~ ("outgoingEdges" -> outgoingEdges)
   }
 }
