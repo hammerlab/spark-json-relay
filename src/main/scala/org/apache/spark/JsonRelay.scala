@@ -82,7 +82,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
     // 'appId' and event as 'SparkListenerSubmitDAG' are added
     val maybeDAGs: Seq[String] = event match {
       case jobStart: SparkListenerJobStart => jobStart.stageInfos.map { stageInfo =>
-        compact(OperationGraph.makeJsonStageDAG(stageInfo) ~
+        compact(OperationGraph.makeJsonStageDAG(stageInfo, jobStart.jobId) ~
           ("appId" -> appId) ~ ("Event" -> "SparkListenerSubmitDAG"))
       }
       case otherEvent => Seq.empty
