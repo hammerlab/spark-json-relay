@@ -9,7 +9,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
 import org.json4s.JsonAST.{JObject, JNothing, JValue}
 
-import org.apache.spark.scheduler.{SparkListenerExecutorMetricsUpdate, SparkListenerEvent, SparkListenerJobStart}
+import org.apache.spark.scheduler._
 import org.apache.spark.util.{Utils, JsonProtocol}
 import org.apache.spark.ui.OperationGraph
 
@@ -27,6 +27,14 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
 
   var numReqs = 0
   var lastEvent: Option[String] = None
+
+  // RDD operation graph events
+  // Event to submit actual DAG for stage, at this point it is unknown if it will be skipped
+  val SparkListenerGraphSubmit = "SparkListenerGraphSubmit"
+  // Event to update current stage "skipped" status
+  val SparkListenerGraphUpdate = "SparkListenerGraphUpdate"
+  // Event to check current stage's parent, if it is skipped
+  val SparkListenerGraphCheck = "SparkListenerGraphCheck"
 
   def debug(s: String): Unit = {
     if (debugLogs) {
@@ -78,13 +86,25 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
       case j => throw new Exception(s"Non-object SparkListenerEvent $j")
     }
 
-    // Parse `SparkListenerJobStart` event to extract DAG, it is converted into JSON string,
-    // 'appId' and event as 'SparkListenerSubmitDAG' are added
-    val maybeDAGs: Seq[String] = event match {
+    // == DAG event processing ==
+    // `SparkListenerJobStart` event is parsed event to extract DAG for stages, each stage is
+    // converted into JSON string with added 'appId', and event.
+    // `SparkListenerStageSubmitted` event is captured to update stage DAG as scheduler has
+    // committed to execute stage. `SparkListenerGraphCheckParent` is also issued to check parent
+    // of the stage if it has been submitted as well. If child stage is report to be submitted
+    // before parent, then parent will be marked as skipped, but will still be updated as runnable
+    // by subsequent request.
+    val graphEvents: Seq[String] = event match {
       case jobStart: SparkListenerJobStart => jobStart.stageInfos.map { stageInfo =>
-        compact(OperationGraph.makeJsonStageDAG(stageInfo, jobStart.jobId) ~
-          ("appId" -> appId) ~ ("Event" -> "SparkListenerSubmitDAG"))
+        compact(OperationGraph.makeJsonStageGraph(stageInfo, jobStart.jobId) ~
+          ("appId" -> appId) ~ ("Event" -> SparkListenerGraphSubmit))
       }
+      case stageSubmitted: SparkListenerStageSubmitted =>
+        stageSubmitted.stageInfo.parentIds.map { parentStageId =>
+          compact(OperationGraph.makeJsonStageGraphCheck(parentStageId) ~
+            ("appId" -> appId) ~ ("Event" -> SparkListenerGraphCheck))
+        } :+ compact(OperationGraph.makeJsonStageGraphUpdate(stageSubmitted.stageInfo) ~
+          ("appId" -> appId) ~ ("Event" -> SparkListenerGraphUpdate))
       case otherEvent => Seq.empty
     }
 
@@ -100,7 +120,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
       }
       writer.write(s)
       // write DAGs, if available
-      maybeDAGs.foreach(writer.write)
+      graphEvents.foreach(writer.write)
       writer.flush()
     } catch {
       case e: SocketException =>
@@ -109,7 +129,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
         debug(s"*** JsonRelay re-sending: $lastEvent and $s and DAGs ***")
         lastEvent.foreach(writer.write)
         writer.write(s)
-        maybeDAGs.foreach(writer.write)
+        graphEvents.foreach(writer.write)
         writer.flush()
         debug("Socket re-sent")
     }

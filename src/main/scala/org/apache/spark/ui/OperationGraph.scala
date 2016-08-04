@@ -29,15 +29,38 @@ object OperationGraph {
    * @param jobId job id for stage info
    * @return JSON object representing RDD graph by dot file, incoming/outgoing edges, cached rdds
    */
-  def makeJsonStageDAG(stageInfo: StageInfo, jobId: Int): JObject = {
+  def makeJsonStageGraph(stageInfo: StageInfo, jobId: Int): JObject = {
     val dag = OperationGraph.graph.makeOperationGraph(stageInfo)
     val dotFile = OperationGraph.graph.makeDotFile(dag)
     val outgoingEdges = dag.outgoingEdges.map(edgeToJson)
     val incomingEdges = dag.incomingEdges.map(edgeToJson)
-    val skipped = dag.rootCluster.name.contains("skipped")
+    // by default all stages are not submitted at the start of job
+    val submitted = false
+    val childSubmitted = false
     val cachedNodes = dag.rootCluster.getCachedNodes.map(nodeToJson)
-    ("jobId" -> jobId) ~ ("stageId" -> stageInfo.stageId) ~ ("attemptId" -> stageInfo.attemptId) ~
-      ("dotFile" -> dotFile) ~ ("cachedRDDs" -> cachedNodes) ~ ("skipped" -> skipped) ~
-        ("incomingEdges" -> incomingEdges) ~ ("outgoingEdges" -> outgoingEdges)
+    ("jobId" -> jobId) ~ ("stageId" -> stageInfo.stageId) ~
+      ("dotFile" -> dotFile) ~ ("cachedRDDs" -> cachedNodes) ~
+      ("submitted" -> submitted) ~ ("childSubmitted" -> childSubmitted) ~
+      ("incomingEdges" -> incomingEdges) ~ ("outgoingEdges" -> outgoingEdges)
+  }
+
+  /**
+   * Check stage whether or not it is submitted, by sending submit status of child stage. Used
+   * mainly to identify if parent stage is skipped.
+   * @param stageId stage id
+   * @return JSON with some check fields
+   */
+  def makeJsonStageGraphCheck(stageId: Int): JObject = {
+    ("stageId" -> stageId) ~ ("childSubmitted" -> true)
+  }
+
+  /**
+   * Update graph for stage id. Job id is not necessary, since stage id is unique per application.
+   * Currently only updates stage as submitted, hence not skipped.
+   * @param stageInfo stage info
+   * @return JSON object with graph update for stage
+   */
+  def makeJsonStageGraphUpdate(stageInfo: StageInfo): JObject = {
+    ("stageId" -> stageInfo.stageId) ~ ("submitted" -> true)
   }
 }
