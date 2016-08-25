@@ -26,6 +26,9 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
   var numReqs = 0
   var lastEvent: Option[String] = None
 
+  // Executor thread dump event
+  val SparkListenerExecutorThreadDumpEvent = "SparkListenerExecutorThreadDumpEvent"
+
   def debug(s: String): Unit = {
     if (debugLogs) {
       println(s)
@@ -36,6 +39,23 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
     println("*** JsonRelay: initializing socket ***")
     socket = socketFactory.createSocket(host, port)
     writer = new OutputStreamWriter(socket.getOutputStream, utf8)
+  }
+
+  /** Get thread dump for executor, `executorId` can be numeric id or "driver" */
+  def jsonExecutorThreadDump(executorId: String): Array[JObject] = {
+    val traces = SparkContext.getOrCreate().getExecutorThreadDump(executorId).getOrElse(Array.empty)
+    if (traces.isEmpty) {
+      Array.empty
+    } else {
+      traces.map { threadTrace =>
+        ("Event" -> SparkListenerExecutorThreadDumpEvent) ~
+          ("executorId" -> executorId) ~
+          ("threadId" -> threadTrace.threadId) ~
+          ("threadName" -> threadTrace.threadName) ~
+          ("threadState" -> threadTrace.threadState.toString) ~
+          ("stackTrace" -> threadTrace.stackTrace)
+      }
+    }
   }
 
   initSocketAndWriter()
@@ -76,7 +96,24 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
       case j => throw new Exception(s"Non-object SparkListenerEvent $j")
     }
 
+    // == Executor thread dump ==
+    // This code collects thread dumps from executors and driver on each executor metric update,
+    // this allows updates to be fairly frequent, also on every executor update we fetch driver
+    // thread dump. Note that this can potentially be a performance bottleneck.
+    val threadDumps: Array[JObject] = event match {
+      case e: SparkListenerExecutorMetricsUpdate =>
+        // Option of array of thread dump objects, if executor is unreachable, or does not exist
+        // this logs error message in stderr and returns None.
+        // Also append data for driver, since there is no corresponding event for it
+        (jsonExecutorThreadDump(e.execId) ++ jsonExecutorThreadDump("driver")).map { each =>
+          each ~ ("appId" -> appId)
+        }
+      case other =>
+        Array.empty
+    }
+
     val s: String = compact(jv)
+    val threadDumpJson: Array[String] = threadDumps.map(compact)
 
     numReqs += 1
     if (s.trim().nonEmpty) {
@@ -87,6 +124,7 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
         debug(s"*** Socket is closed... ***")
       }
       writer.write(s)
+      threadDumpJson.foreach(writer.write)
       writer.flush()
     } catch {
       case e: SocketException =>
@@ -95,6 +133,8 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
         println(s"*** JsonRelay re-sending: $lastEvent and $s ***")
         lastEvent.foreach(writer.write)
         writer.write(s)
+        println(s"*** JsonRelay re-sending: thread dumps ***")
+        threadDumpJson.foreach(writer.write)
         writer.flush()
         debug("Socket re-sent")
     }
