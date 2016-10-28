@@ -9,8 +9,6 @@ import org.apache.spark.rdd.RDDOperationScope
 import org.apache.spark.scheduler._
 import org.apache.spark.storage._
 
-import org.json4s.jackson.{JsonMethods => Json}
-
 class JsonRelaySuite extends UnitTestSuite {
 
   // Test assumes that slim is not runningon default localhost:8123
