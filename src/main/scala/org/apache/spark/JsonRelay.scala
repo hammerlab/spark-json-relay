@@ -5,9 +5,10 @@ import java.net.{Socket, SocketException}
 import java.nio.charset.Charset
 import javax.net.SocketFactory
 
+import org.apache.spark.storage.{BlockStatus, BlockUpdatedInfo}
 import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonDSL._
-import org.apache.spark.scheduler.{SparkListenerExecutorMetricsUpdate, SparkListenerEvent}
+import org.apache.spark.scheduler.{SparkListenerBlockUpdated, SparkListenerExecutorMetricsUpdate, SparkListenerEvent}
 import org.apache.spark.util.{Utils, JsonProtocol}
 import org.json4s.JsonAST.{JObject, JNothing, JValue}
 
@@ -60,6 +61,21 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
             })
         else
           JNothing
+      case SparkListenerBlockUpdated(
+        BlockUpdatedInfo(
+          blockManagerId,
+          blockId,
+          storageLevel,
+          memSize,
+          diskSize,
+          externalBlockStoreSize
+        )
+      ) =>
+        ("Event" -> "SparkListenerBlockUpdated") ~
+          ("Block Manager ID" -> JsonProtocol.blockManagerIdToJson(blockManagerId)) ~
+          ("Block ID" -> blockId.toString()) ~
+          ("Status" -> JsonProtocol.blockStatusToJson(
+            BlockStatus(storageLevel, memSize, diskSize, externalBlockStoreSize)))
       case _ =>
         try {
           JsonProtocol.sparkEventToJson(event)
@@ -81,24 +97,25 @@ class JsonRelay(conf: SparkConf) extends SparkFirehoseListener {
     numReqs += 1
     if (s.trim().nonEmpty) {
       debug(s"Socket To send request: $numReqs:\n$s\n")
-    }
-    try {
-      if (socket.isClosed) {
-        debug(s"*** Socket is closed... ***")
-      }
-      writer.write(s)
-      writer.flush()
-    } catch {
-      case e: SocketException =>
-        socket.close()
-        initSocketAndWriter()
-        println(s"*** JsonRelay re-sending: $lastEvent and $s ***")
-        lastEvent.foreach(writer.write)
+      try {
+        if (socket.isClosed) {
+          debug(s"*** Socket is closed... ***")
+        }
         writer.write(s)
         writer.flush()
-        debug("Socket re-sent")
-    }
+      } catch {
+        case e: SocketException =>
+          println(s"*** JsonRelay caught SocketException: ${e.toString}${e.getStackTrace.mkString("\n\t", "\n\t", "")}")
+          socket.close()
+          initSocketAndWriter()
+          println(s"*** JsonRelay re-sending: $lastEvent and $s ***")
+          lastEvent.foreach(writer.write)
+          writer.write(s)
+          writer.flush()
+          debug("Socket re-sent")
+      }
 
-    lastEvent = Some(s)
+      lastEvent = Some(s)
+    }
   }
 }
